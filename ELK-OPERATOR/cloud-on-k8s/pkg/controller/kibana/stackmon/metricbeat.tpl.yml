@@ -1,0 +1,25 @@
+metricbeat.modules:
+  # https://www.elastic.co/guide/en/beats/metricbeat/7.14/metricbeat-module-kibana.html
+  - module: kibana
+    metricsets:
+      - stats
+      - status
+    period: 10s
+    xpack.enabled: true
+    hosts: ["{{ .URL }}"]
+    username: {{ .Username }}
+    password: {{ .Password }}
+    ssl.enabled: {{ .IsSSL }}
+    # The ssl verification_mode is set to `certificate` in the config template to verify that the certificate is signed by a trusted authority,
+    # but does not perform any hostname verification. This is used when SSL is enabled with or without CA, to support self-signed certificate
+    # with a custom CA or custom certificates with or without a CA that most likely are not issued for `localhost`.
+    ssl.verification_mode: "certificate"
+    {{- if .HasCA }}
+    ssl.certificate_authorities: ["{{ .CAPath }}"]
+    {{- end }}
+
+processors:
+  - add_cloud_metadata: {}
+  - add_host_metadata: {}
+
+# Elasticsearch output configuration is generated

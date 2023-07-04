@@ -1,0 +1,52 @@
+:parent_page_id: elasticsearch-specification
+:page_id: pod-disruption-budget
+ifdef::env-github[]
+****
+link:https://www.elastic.co/guide/en/cloud-on-k8s/master/k8s-{parent_page_id}.html#k8s-{page_id}[View this document on the Elastic website]
+****
+endif::[]
+[id="{p}-{page_id}"]
+= Pod disruption budget
+
+A link:https://kubernetes.io/docs/tasks/run-application/configure-pdb/[Pod Disruption Budget] (PDB) allows you to limit the disruption to your application when its pods need to be rescheduled for some reason such as upgrades or routine maintenance work on the Kubernetes nodes.
+
+ECK manages a default PDB per Elasticsearch resource. It allows one Elasticsearch Pod to be taken down, as long as the cluster has a `green` health. Single-node clusters are not considered highly available and can always be disrupted.
+
+In the Elasticsearch specification, you can change the default behaviour as follows:
+
+[source,yaml,subs="attributes"]
+----
+apiVersion: elasticsearch.k8s.elastic.co/{eck_crd_version}
+kind: Elasticsearch
+metadata:
+  name: quickstart
+spec:
+  version: {version}
+  nodeSets:
+  - name: default
+    count: 3
+  podDisruptionBudget:
+    spec:
+      minAvailable: 2
+      selector:
+        matchLabels:
+          elasticsearch.k8s.elastic.co/cluster-name: quickstart
+----
+
+NOTE: link:https://kubernetes.io/docs/tasks/run-application/configure-pdb/#arbitrary-controllers-and-selectors[`maxUnavailable`] cannot be used with an arbitrary label selector, therefore `minAvailable` is used in this example.
+
+You can also explicitly disable the default PDB:
+
+[source,yaml,subs="attributes"]
+----
+apiVersion: elasticsearch.k8s.elastic.co/{eck_crd_version}
+kind: Elasticsearch
+metadata:
+  name: quickstart
+spec:
+  version: {version}
+  nodeSets:
+  - name: default
+    count: 3
+  podDisruptionBudget: {}
+----

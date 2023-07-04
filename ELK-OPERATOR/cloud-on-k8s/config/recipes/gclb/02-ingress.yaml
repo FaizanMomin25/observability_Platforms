@@ -1,0 +1,39 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hulk
+  labels:
+    app: hulk
+  annotations:
+    # Issue certificates for TLS hosts automatically
+    cert-manager.io/cluster-issuer: "selfsigning-issuer"
+    # Disable HTTP traffic
+    kubernetes.io/ingress.allow-http: "false"
+spec:
+  tls:
+    - hosts: ["elasticsearch.hulk"]
+      secretName: hulk-elasticsearch-cert
+    - hosts: ["kibana.hulk"]
+      secretName: hulk-kibana-cert
+  rules:
+    - host: "elasticsearch.hulk"
+      http:
+        paths:
+          - path: "/*"
+            pathType: Exact
+            backend:
+              service:
+                name: hulk-es-http
+                port:
+                  name: https
+    - host: "kibana.hulk"
+      http:
+        paths:
+          - path: "/*"
+            pathType: Exact
+            backend:
+              service:
+                name: hulk-kb-http
+                port:
+                  name: https

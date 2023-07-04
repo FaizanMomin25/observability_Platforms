@@ -1,0 +1,367 @@
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: {{ .E2ENamespace }}
+  labels:
+    name: {{ .E2ENamespace }}
+    test-run: {{ .TestRun }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .E2EServiceAccount }}
+  namespace: {{ .E2ENamespace }}
+  labels:
+    test-run: {{ .TestRun }}
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: elastic-restricted
+  labels:
+    test-run: {{ .TestRun }}
+rules:
+  - apiGroups:
+      - extensions
+    resources:
+      - podsecuritypolicies
+    resourceNames:
+      - elastic.restricted
+    verbs:
+      - use
+  - apiGroups:
+      - "storage.k8s.io"
+    resources:
+      - storageclasses
+    verbs:
+      - get
+      - list
+      - delete
+      - create
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: elastic-restricted-binding
+  labels:
+    test-run: {{ .TestRun }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: elastic-restricted
+subjects:
+  - kind: Group
+    name: system:serviceaccounts:e2e
+    apiGroup: rbac.authorization.k8s.io
+  - kind: Group
+    name: system:serviceaccounts
+    namespace: kube-system
+  - kind: ServiceAccount
+    name: {{ .Operator.Name }}
+    namespace: {{ .Operator.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: e2e
+  labels:
+    test-run: {{ .TestRun }}
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - "pods/exec"
+    verbs:
+      - "create"
+  # to allow eck-diagnostics to get pod logs
+  - apiGroups:
+      - ""
+    resources:
+      - "pods/log"
+    verbs:
+      - "get"
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+      - services
+      - endpoints
+      - secrets
+      - persistentvolumeclaims
+      - configmaps
+      - events
+      - serviceaccounts
+      # to create resources defined in recipes
+      - namespaces
+      - nodes
+      - nodes/metrics
+      - nodes/stats
+      - nodes/proxy
+    verbs:
+      - get
+      - list
+      - watch
+      - delete
+      - deletecollection
+      - create
+      - update
+  - apiGroups:
+      - "security.openshift.io"
+    resources:
+      - securitycontextconstraints
+    verbs:
+      - get
+      - update
+      - patch
+  - apiGroups:
+    - policy
+    resources:
+    - podsecuritypolicies
+    verbs:
+    - get
+    # to dynamically bind service accounts to Beat ClusterRoles
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - clusterroles
+    verbs:
+    - bind
+    # to create resources defined in recipes
+  - apiGroups:
+    - "rbac.authorization.k8s.io"
+    resources:
+    - clusterrolebindings
+    - clusterroles
+    verbs:
+    - get
+    - list
+    - watch
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+      - "apps"
+    resources:
+      - deployments
+      - statefulsets
+      - daemonsets
+      - replicasets # to create resources defined in recipes
+    verbs:
+      - get
+      - list
+      - watch
+      - update
+      - delete
+      - create
+    # to create resources defined in recipes
+  - apiGroups:
+    - "extensions"
+    resources:
+    - replicasets
+    verbs:
+    - get
+    - list
+    - watch
+    # to create resources defined in recipes
+  - nonResourceURLs:
+    - "/metrics"
+    verbs:
+    - get
+    - list
+    - watch
+    # for Elastic Agent in Fleet mode
+  - apiGroups:
+    - "coordination.k8s.io"
+    resources:
+    - leases
+    verbs:
+    - get
+    - create
+    - update
+    # for Elastic Agent Kubernetes integration
+  - apiGroups:
+    - "batch"
+    resources:
+    - jobs
+    verbs:
+    - "get"
+    - "list"
+    - "watch"
+  - apiGroups:
+      - elasticsearch.k8s.elastic.co
+    resources:
+      - elasticsearches
+      - elasticsearches/status
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+      - deletecollection
+  - apiGroups:
+      - autoscaling.k8s.elastic.co
+    resources:
+      - elasticsearchautoscalers
+      - elasticsearchautoscalers/status
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+      - deletecollection
+  - apiGroups:
+      - apm.k8s.elastic.co
+    resources:
+      - apmservers
+      - apmservers/status
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+      - deletecollection
+  - apiGroups:
+      - kibana.k8s.elastic.co
+    resources:
+      - kibanas
+      - kibanas/status
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+      - deletecollection
+  - apiGroups:
+      - apm.k8s.elastic.co
+    resources:
+      - apmservers
+      - apmservers/status
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+      - deletecollection
+  - apiGroups:
+      - enterprisesearch.k8s.elastic.co
+    resources:
+      - enterprisesearches
+      - enterprisesearches/status
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+      - deletecollection
+  - apiGroups:
+      - beat.k8s.elastic.co
+    resources:
+      - beats
+      - beats/status
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+      - deletecollection
+  - apiGroups:
+      - agent.k8s.elastic.co
+    resources:
+      - agents
+      - agents/status
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+      - deletecollection
+  - apiGroups:
+      - maps.k8s.elastic.co
+    resources:
+      - elasticmapsservers
+      - elasticmapsservers/status
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+      - deletecollection
+  - apiGroups:
+      - stackconfigpolicy.k8s.elastic.co
+    resources:
+      - stackconfigpolicies
+      - stackconfigpolicies/status
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+      - deletecollection
+  - apiGroups :
+      - logstash.k8s.elastic.co
+    resources:
+      - logstashes
+      - logstashes/status
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+      - deletecollection
+  - apiGroups:
+      - storage.k8s.io
+    resources:
+      - storageclasses
+    verbs:
+      - get
+      - list
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  creationTimestamp: null
+  name: e2e-binding
+  labels:
+    test-run: {{ .TestRun }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: e2e
+subjects:
+  - kind: ServiceAccount
+    name: {{ .E2EServiceAccount }}
+    namespace: {{ .E2ENamespace }}

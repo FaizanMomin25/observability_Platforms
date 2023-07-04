@@ -1,0 +1,85 @@
+// Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
+// or more contributor license agreements. Licensed under the Elastic License 2.0;
+// you may not use this file except in compliance with the Elastic License 2.0.
+
+package test
+
+import (
+	"testing"
+)
+
+// RunMutations tests resources changes on given resources.
+// If the resource to mutate to is the same as the original resource, then all tests should still pass.
+// //nolint:thelper
+func RunMutations(t *testing.T, creationBuilders []Builder, mutationBuilders []Builder) {
+	skipIfIncompatibleBuilders(t, append(creationBuilders, mutationBuilders...)...)
+	k := NewK8sClientOrFatal()
+	steps := StepList{}
+
+	for _, toCreate := range creationBuilders {
+		steps = steps.WithSteps(toCreate.InitTestSteps(k))
+	}
+	for _, toCreate := range creationBuilders {
+		steps = steps.WithSteps(toCreate.CreationTestSteps(k))
+	}
+	for _, toCreate := range creationBuilders {
+		steps = steps.WithSteps(CheckTestSteps(toCreate, k))
+	}
+
+	// Trigger some mutations
+	for _, mutateTo := range mutationBuilders {
+		steps = steps.WithSteps(mutateTo.MutationTestSteps(k))
+	}
+
+	// Delete using the original builder (so that we can use it as a mutation builder as well)
+	for _, toCreate := range creationBuilders {
+		steps = steps.WithSteps(toCreate.DeletionTestSteps(k))
+	}
+
+	steps.RunSequential(t)
+}
+
+//nolint:thelper
+func RunMutationsWhileWatching(t *testing.T, creationBuilders []Builder, mutationBuilders []Builder, watchers []Watcher) {
+	skipIfIncompatibleBuilders(t, append(creationBuilders, mutationBuilders...)...)
+	k := NewK8sClientOrFatal()
+	steps := StepList{}
+
+	for _, toCreate := range creationBuilders {
+		steps = steps.WithSteps(toCreate.InitTestSteps(k))
+	}
+	for _, toCreate := range creationBuilders {
+		steps = steps.WithSteps(toCreate.CreationTestSteps(k))
+	}
+	for _, toCreate := range creationBuilders {
+		steps = steps.WithSteps(CheckTestSteps(toCreate, k))
+	}
+
+	// Start watchers
+	for _, watcher := range watchers {
+		steps = steps.WithStep(watcher.StartStep(k))
+	}
+
+	// Trigger some mutations
+	for _, mutateTo := range mutationBuilders {
+		steps = steps.WithSteps(mutateTo.MutationTestSteps(k))
+	}
+
+	for _, watcher := range watchers {
+		steps = steps.WithStep(watcher.StopStep(k))
+	}
+
+	// Delete using the original builder (so that we can use it as a mutation builder as well)
+	for _, toCreate := range creationBuilders {
+		steps = steps.WithSteps(toCreate.DeletionTestSteps(k))
+	}
+
+	steps.RunSequential(t)
+}
+
+// RunMutations tests one resource change on a given resource.
+//
+//nolint:thelper
+func RunMutation(t *testing.T, toCreate Builder, mutateTo Builder) {
+	RunMutations(t, []Builder{toCreate}, []Builder{mutateTo})
+}

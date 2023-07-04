@@ -1,0 +1,11 @@
+{{- $testRun := .TestRun -}}
+{{- range .Operator.ManagedNamespaces }}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ . }}
+  labels:
+    name: {{ . }}
+    test-run: {{ $testRun }}
+{{- end }}

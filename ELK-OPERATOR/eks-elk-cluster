@@ -1,0 +1,11 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+metadata:
+  name: elk
+  region: ap-south-1
+nodeGroups:
+  - name: worker-nodegroup
+    instanceType: t2.large
+    desiredCapacity: 3
+    ssh:
+      publicKeyPath: ~/.ssh/id_rsa.pub

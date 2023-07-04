@@ -1,0 +1,424 @@
+# This file contains all the resources (including RBAC resources) for E2E test monitoring
+apiVersion: agent.k8s.elastic.co/v1alpha1
+kind: Agent
+metadata:
+  name: e2e-agent
+  namespace: {{ .E2ENamespace }}
+spec:
+  version: 8.4.0 # needs to less or equal to e2e-monitor version
+  elasticsearchRefs:
+    - secretName: eck-{{ .TestRun }}
+  daemonSet:
+    podTemplate:
+      spec:
+        automountServiceAccountToken: true
+        serviceAccountName: e2e-agent
+        containers:
+          - name: agent
+            securityContext:
+              runAsUser: 0
+            resources:
+              limits:
+                memory: 768Mi
+                cpu: 1
+              requests:
+                memory: 768Mi
+                cpu: 100m
+            env:
+              - name: NODE_NAME
+                valueFrom:
+                  fieldRef:
+                    fieldPath: spec.nodeName
+            volumeMounts:
+{{ if not .AutopilotCluster }}
+              - name: proc
+                mountPath: /hostfs/proc
+                readOnly: true
+              - name: cgroup
+                mountPath: /hostfs/sys/fs/cgroup
+                readOnly: true
+              - name: varlibdockercontainers
+                mountPath: /var/lib/docker/containers
+                readOnly: true
+{{ end }}
+              - name: varlog
+                mountPath: /var/log
+                readOnly: true
+        volumes:
+{{ if not .AutopilotCluster }}
+          - name: proc
+            hostPath:
+              path: /proc
+          - name: cgroup
+            hostPath:
+              path: /sys/fs/cgroup
+          - name: varlibdockercontainers
+            hostPath:
+              path: /var/lib/docker/containers
+{{ else }}
+          - name: agent-data
+            ephemeral:
+              volumeClaimTemplate:
+                spec:
+                  accessModes: [ "ReadWriteOnce" ]
+                  storageClassName: "e2e-default"
+                  resources:
+                    requests:
+                      storage: 10Gi
+{{ end }}
+          - name: varlog
+            hostPath:
+              path: /var/log
+  config:
+    agent:
+      monitoring:
+        enabled: true
+        use_output: default
+        logs: true
+        metrics: true
+    providers.kubernetes:
+      node: ${NODE_NAME}
+      scope: node
+    inputs:
+    - name: kubernetes-1
+      revision: 1
+      type: kubernetes/metrics
+      use_output: default
+      meta:
+        package:
+          name: kubernetes
+          version: 0.2.8
+      data_stream:
+        namespace: k8s
+      processors:
+        - add_fields:
+            target: ''
+            fields:
+              pipeline: {{ .Pipeline }}
+              build_number: {{ .BuildNumber }}
+              provider: {{ .Provider }}
+              cluster_name: {{ .ClusterName }}
+              kubernetes_version: {{ .KubernetesMajorMinor }}
+              stack_version: {{ .ElasticStackVersion }}
+              e2e_test_id: {{ .Pipeline }}-{{ .BuildNumber }}-{{ .Provider }}-{{ .ClusterName }}-{{ .KubernetesMajorMinor }}-{{ .ElasticStackVersion }}
+      streams:
+      - id: kubernetes/metrics-kubernetes.apiserver
+        data_stream:
+          dataset: kubernetes.apiserver
+          type: metrics
+        metricsets:
+          - apiserver
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        hosts:
+          - 'https://${env.KUBERNETES_SERVICE_HOST}:${env.KUBERNETES_SERVICE_PORT}'
+        period: 30s
+        ssl.certificate_authorities:
+        - /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+      - id: kubernetes/metrics-kubernetes.container
+        data_stream:
+          dataset: kubernetes.container
+          type: metrics
+        metricsets:
+          - container
+        add_metadata: true
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        hosts:
+          - 'https://${env.NODE_NAME}:10250'
+        period: 10s
+        ssl.verification_mode: none
+      - id: kubernetes/metrics-kubernetes.event
+        data_stream:
+          dataset: kubernetes.event
+          type: metrics
+        metricsets:
+          - event
+        period: 10s
+        add_metadata: true
+      - id: kubernetes/metrics-kubernetes.node
+        data_stream:
+          dataset: kubernetes.node
+          type: metrics
+        metricsets:
+          - node
+        add_metadata: true
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        hosts:
+          - 'https://${env.NODE_NAME}:10250'
+        period: 10s
+        ssl.verification_mode: none
+      - id: kubernetes/metrics-kubernetes.pod
+        data_stream:
+          dataset: kubernetes.pod
+          type: metrics
+        metricsets:
+          - pod
+        add_metadata: true
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        hosts:
+          - 'https://${env.NODE_NAME}:10250'
+        period: 10s
+        ssl.verification_mode: none
+      - id: kubernetes/metrics-kubernetes.system
+        data_stream:
+          dataset: kubernetes.system
+          type: metrics
+        metricsets:
+          - system
+        add_metadata: true
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        hosts:
+          - 'https://${env.NODE_NAME}:10250'
+        period: 10s
+        ssl.verification_mode: none
+      - id: kubernetes/metrics-kubernetes.volume
+        data_stream:
+          dataset: kubernetes.volume
+          type: metrics
+        metricsets:
+          - volume
+        add_metadata: true
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        hosts:
+          - 'https://${env.NODE_NAME}:10250'
+        period: 10s
+        ssl.verification_mode: none
+    - name: system-1
+      type: system/metrics
+      use_output: default
+      meta:
+        package:
+          name: system
+          version: 8.8.0
+      data_stream:
+        namespace: default
+      processors:
+        - add_fields:
+            target: ''
+            fields:
+              pipeline: {{ .Pipeline }}
+              build_number: {{ .BuildNumber }}
+              provider: {{ .Provider }}
+              cluster_name: {{ .ClusterName }}
+              kubernetes_version: {{ .KubernetesMajorMinor }}
+              stack_version: {{ .ElasticStackVersion }}
+              e2e_test_id: {{ .Pipeline }}-{{ .BuildNumber }}-{{ .Provider }}-{{ .ClusterName }}-{{ .KubernetesMajorMinor }}-{{ .ElasticStackVersion }}
+      streams:
+      - id: system/metrics-system.cpu
+        data_stream:
+          dataset: system.cpu
+          type: metrics
+        metricsets:
+          - cpu
+        cpu.metrics:
+          - percentages
+          - normalized_percentages
+        period: 10s
+      - id: system/metrics-system.diskio
+        data_stream:
+          dataset: system.diskio
+          type: metrics
+        metricsets:
+          - diskio
+        diskio.include_devices: null
+        period: 10s
+      - id: system/metrics-system.filesystem
+        data_stream:
+          dataset: system.filesystem
+          type: metrics
+        metricsets:
+          - filesystem
+        period: 1m
+        processors:
+          - drop_event.when.regexp:
+              system.filesystem.mount_point: ^/(sys|cgroup|proc|dev|etc|host|lib|snap)($|/)
+      - id: system/metrics-system.fsstat
+        data_stream:
+          dataset: system.fsstat
+          type: metrics
+        metricsets:
+          - fsstat
+        period: 1m
+        processors:
+          - drop_event.when.regexp:
+              system.fsstat.mount_point: ^/(sys|cgroup|proc|dev|etc|host|lib|snap)($|/)
+      - id: system/metrics-system.load
+        data_stream:
+          dataset: system.load
+          type: metrics
+        metricsets:
+          - load
+        period: 10s
+      - id: system/metrics-system.memory
+        data_stream:
+          dataset: system.memory
+          type: metrics
+        metricsets:
+          - memory
+        period: 10s
+      - id: system/metrics-system.network
+        data_stream:
+          dataset: system.network
+          type: metrics
+        metricsets:
+          - network
+        period: 10s
+        network.interfaces: null
+      - id: system/metrics-system.process
+        data_stream:
+          dataset: system.process
+          type: metrics
+        metricsets:
+          - process
+        period: 10s
+        process.include_top_n.by_cpu: 5
+        process.include_top_n.by_memory: 5
+        process.cmdline.cache.enabled: true
+        process.cgroups.enabled: false
+        process.include_cpu_ticks: false
+        processes:
+          - .*
+      - id: system/metrics-system.process_summary
+        data_stream:
+          dataset: system.process_summary
+          type: metrics
+        metricsets:
+          - process_summary
+        period: 10s
+      - id: system/metrics-system.socket_summary
+        data_stream:
+          dataset: system.socket_summary
+          type: metrics
+        metricsets:
+          - socket_summary
+        period: 10s
+      - id: system/metrics-system.uptime
+        data_stream:
+          dataset: system.uptime
+          type: metrics
+        metricsets:
+          - uptime
+        period: 10s
+    - name: container-log
+      type: container
+      use_output: default
+      meta:
+        package:
+          name: log
+          version: 0.4.6
+      data_stream:
+        namespace: default
+      processors:
+        - add_fields:
+            target: ''
+            fields:
+              pipeline: {{ .Pipeline }}
+              build_number: {{ .BuildNumber }}
+              provider: {{ .Provider }}
+              cluster_name: {{ .ClusterName }}
+              kubernetes_version: {{ .KubernetesMajorMinor }}
+              stack_version: {{ .ElasticStackVersion }}
+              e2e_test_id: {{ .Pipeline }}-{{ .BuildNumber }}-{{ .Provider }}-{{ .ClusterName }}-{{ .KubernetesMajorMinor }}-{{ .ElasticStackVersion }}
+      streams:
+      - data_stream:
+          dataset: elasticsearch
+        symlinks: true
+        json.keys_under_root: true
+        json.add_error_key: true
+        paths:
+          - /var/log/containers/*${kubernetes.container.id}.log
+        condition: ${kubernetes.container.name} == 'elasticsearch'
+      - data_stream:
+          dataset: kibana
+        symlinks: true
+        json.keys_under_root: true
+        json.add_error_key: true
+        paths:
+          - /var/log/containers/*${kubernetes.container.id}.log
+        condition: ${kubernetes.container.name} == 'kibana'
+      - data_stream:
+          dataset: generic
+        symlinks: true
+        json.keys_under_root: true
+        json.add_error_key: true
+        paths:
+          - /var/log/containers/*${kubernetes.container.id}.log
+        condition: ${kubernetes.container.name} != 'elasticsearch' and  ${kubernetes.container.name} != 'kibana'
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: e2e-agent
+rules:
+  - apiGroups: [""] # "" indicates the core API group
+    resources:
+      - namespaces
+      - pods
+      - nodes
+      - nodes/metrics
+      - nodes/proxy
+      - nodes/stats
+      - events
+    verbs:
+      - get
+      - watch
+      - list
+  - nonResourceURLs:
+      - /metrics
+    verbs:
+      - get
+      - watch
+      - list
+  - apiGroups: ["coordination.k8s.io"]
+    resources:
+      - leases
+    verbs:
+      - get
+      - create
+      - update
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: e2e-agent
+  namespace: {{ .E2ENamespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: e2e-agent
+subjects:
+  - kind: ServiceAccount
+    name: e2e-agent
+    namespace: {{ .E2ENamespace }}
+roleRef:
+  kind: ClusterRole
+  name: e2e-agent
+  apiGroup: rbac.authorization.k8s.io
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: e2e-agent-restricted
+  namespace: {{ .E2ENamespace }}
+rules:
+  - apiGroups:
+      - policy
+    resources:
+      - podsecuritypolicies
+    resourceNames:
+      - elastic.agent.restricted
+    verbs:
+      - use
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: e2e-agent-restricted-binding
+  namespace: {{ .E2ENamespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: e2e-agent-restricted
+subjects:
+  - kind: ServiceAccount
+    name: e2e-agent
