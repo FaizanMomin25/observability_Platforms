@@ -3,19 +3,19 @@ Make sure you have K8s Cluster Up and running....
 
 1. Clone the kube-state-metrics repository to a local directory:
 
-# git clone git@github.com:kubernetes/kube-state-metrics.git
+git clone git@github.com:kubernetes/kube-state-metrics.git
 
 2. Change directories into the cloned repository:
 
-# cd kube-state-metrics	
+cd kube-state-metrics	
 
 3. Deploy the project to your Kubernetes cluster:
 
-# kubectl apply -f examples/standard
+kubectl apply -f examples/standard
 
 OUTPUT:-- 
 
-###The results should be like the following:
+####The results should be like the following:
 
 clusterrolebinding.rbac.authorization.k8s.io/kube-state-metrics created
 clusterrole.rbac.authorization.k8s.io/kube-state-metrics created
