@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginxservice
+  namespace: default
+spec:
+  selector:
+    env: test
+  type: NodePort
+  ports:
+  - name: nginxport
+    protocol: TCP
+    port: 80
+    targetPort: 80
+    nodePort: 32003
