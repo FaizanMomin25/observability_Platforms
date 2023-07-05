@@ -13,15 +13,6 @@ cd kube-state-metrics
 
 kubectl apply -f examples/standard
 
-OUTPUT:-- 
-
-####The results should be like the following:
-
-clusterrolebinding.rbac.authorization.k8s.io/kube-state-metrics created
-clusterrole.rbac.authorization.k8s.io/kube-state-metrics created
-deployment.apps/kube-state-metrics created
-serviceaccount/kube-state-metrics created
-service/kube-state-metrics created
 ========================================
 
 STEP 2: Prometheus Kubernetes Manifest Files
@@ -38,7 +29,6 @@ First, we will create a Kubernetes namespace for all our monitoring components. 
 Execute the following command to create a new namespace named monitoring.
 
 kubectl create namespace monitoring
-
 
 STEP 4: Create a file named clusterRole.yaml and copy the following RBAC role.
 
