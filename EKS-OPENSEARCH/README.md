@@ -111,6 +111,6 @@ kubectl --namespace=logging get pods
 ## Log in OPENSEARCH  
 ---------------------  
 Finally Let’s log into OpenSearch Dashboards to visualize our logs.  
-OpenSearch Dashboards URL: <GET THIS LINK FROM AWS CONSOLE>
-OpenSearch Dashboards user: <YOUR USER ACCORDINGLY>  
-OpenSearch Dashboards password: <YOUR PASSWORD ACCORDINGLY>
+OpenSearch Dashboards URL: GET THIS LINK FROM AWS CONSOLE
+OpenSearch Dashboards user: YOUR USER ACCORDINGLY  
+OpenSearch Dashboards password: YOUR PASSWORD ACCORDINGLY
